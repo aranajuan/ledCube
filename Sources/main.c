@@ -51,8 +51,8 @@
 #define CAPA3	PTBD_PTBD1
 #define ALLOFF CAPA0=0;CAPA1=0;CAPA2=0;CAPA3=0;
 
-#define CACHE_SIZE	2
-#define CACHE_ROW_SIZE	4
+#define CACHE_SIZE	4
+#define CACHE_ROW_SIZE	7
 #define DELAY	for (i = 0; i < 0xff; i++) {for (f = 0; f < 0xff; f++) {}}
 
 typedef struct{
@@ -92,10 +92,10 @@ typedef struct{
 } TimerStatus;
 
 /* GLOBAL VARS */
-FAT16Info FATFS;
-CacheItem cache[CACHE_SIZE];
-TimerStatus status;
-uint8_t lastcache;
+static FAT16Info FATFS;
+static CacheItem cache[CACHE_SIZE];
+static TimerStatus status;
+static uint8_t lastcache;
 /* GLOBAL VARS */
 
 /* SD FUNCTIONS*/
@@ -361,7 +361,6 @@ void loadSIPOS(uint8_t c1, uint8_t c2) {
 
 ISR(ISR_TIMER) {
 	TPM1SC_TOIE = 0;
-	return;
 	ALLOFF
 	status.timer_effect++;
 	if (status.ef->time == 0x0) {
@@ -449,10 +448,9 @@ void main(void) {
 		for(i=0;i<CACHE_SIZE;i++){
 			loadEffect(i*CACHE_ROW_SIZE);
 		}
-		return;
 	}
 	
-	TPM1SC_TOIE = 0;
+	TPM1SC_TOIE = 1;
 
 	for (;;) {
 
