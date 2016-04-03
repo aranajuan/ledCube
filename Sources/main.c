@@ -51,8 +51,8 @@
 #define CAPA3	PTBD_PTBD1
 #define ALLOFF CAPA0=0;CAPA1=0;CAPA2=0;CAPA3=0;
 
-#define CACHE_SIZE	2
-#define CACHE_ROW_SIZE	4
+#define CACHE_SIZE	4
+#define CACHE_ROW_SIZE	7
 #define DELAY	for (i = 0; i < 0xff; i++) {for (f = 0; f < 0xff; f++) {}}
 
 typedef struct {
@@ -474,7 +474,7 @@ void main(void) {
 			loadEffect(i * CACHE_ROW_SIZE, 0);
 		}
 	}
-
+	status.ef=getEffect(0);
 	TPM1SC_TOIE = 1;
 	i=0;
 	for (;;) {
@@ -496,10 +496,9 @@ void main(void) {
 	PEX_RTOS_START(); /* Startup of the selected RTOS. Macro is defined by the RTOS component. */
 #endif
 	/*** End of RTOS startup code.  ***/
-	/*** Processor Expert end of main routine. DON'T MODIFY THIS CODE!!! ***/
-	for (;;) {
-	}
-	/*** Processor Expert end of main routine. DON'T WRITE CODE BELOW!!! ***/
+  /*** Processor Expert end of main routine. DON'T MODIFY THIS CODE!!! ***/
+  for(;;){}
+  /*** Processor Expert end of main routine. DON'T WRITE CODE BELOW!!! ***/
 } /*** End of main routine. DO NOT MODIFY THIS TEXT!!! ***/
 
 /* END main */
