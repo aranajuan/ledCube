@@ -291,12 +291,12 @@ uint8_t FSopen_file(uint8_t * name, FAT16Info * FS) {
 /* carga linea en cache correspondiente a ID solicitado */
 Effect * loadEffect(uint16_t id, uint8_t online) {
 	//buscar id de cache libre
-	/*
+
 	uint16_t clust_move;
 	uint16_t of_b;
 	uint8_t of_sec;
 	uint8_t of_clus;
-	*/
+
 	if (status.lastcache > CACHE_SIZE) {
 		status.lastcache = 0;
 	} else {
@@ -315,22 +315,22 @@ Effect * loadEffect(uint16_t id, uint8_t online) {
 	}
 	cache[status.lastcache].ief = (id / CACHE_ROW_SIZE) * CACHE_ROW_SIZE;
 	
-	/*Calculo de sector
-	of_b = (cache[status.lastcache].ief * 9) % FATFS.|sector_size;
+
+	of_b = (cache[status.lastcache].ief * 9) % FATFS.sector_size;
 	of_sec = (cache[status.lastcache].ief * 9) /FATFS.sector_size;
 	of_clus = of_sec / FATFS.cluster_sectors;
 	of_sec = of_sec % FATFS.cluster_sectors;
-	clust_move = FS->fcurr_clust;
+	clust_move = FATFS.fcurr_clust;
 	if (of_clus != 0) {
 		for (; of_clus > 0; of_clus--) {
-			SD_read(FS->fat_start, (clust_move * 2), &clust_move, 2);
+			SD_read(FATFS.fat_start, (clust_move * 2), &clust_move, 2);
 			fixEndian(&clust_move, 2);
 		}
 	}
-	*/
+
 	while (SD_read(
-			FATFS.data_start + ((FATFS.fcurr_clust - 2) * FATFS.cluster_sectors)
-					+ 0, cache[status.lastcache].ief * 9,
+			FATFS.data_start + ((clust_move - 2) * FATFS.cluster_sectors)
+					+ of_sec, of_b,
 			&(cache[status.lastcache].effects[0]), CACHE_ROW_SIZE * 9) != 0x00) {
 
 	}
