@@ -51,18 +51,18 @@
 #define CAPA3	PTBD_PTBD1
 #define ALLOFF CAPA0=0;CAPA1=0;CAPA2=0;CAPA3=0;
 
-#define CACHE_SIZE	4
-#define CACHE_ROW_SIZE	7
+#define CACHE_SIZE	2
+#define CACHE_ROW_SIZE	4
 #define DELAY	for (i = 0; i < 0xff; i++) {for (f = 0; f < 0xff; f++) {}}
 
-typedef struct{
+typedef struct {
 	uint8_t layer[8];
 	uint8_t time;
-}Effect;
+} Effect;
 
-typedef struct{
+typedef struct {
 	uint8_t ief;
-	Effect effects[CACHE_ROW_SIZE];	
+	Effect effects[CACHE_ROW_SIZE];
 } CacheItem;
 
 typedef struct {
@@ -74,28 +74,28 @@ typedef struct {
 	uint16_t data_start;	//sector
 	uint32_t fsize;	//bytes
 	uint16_t fcurr_clust;	//current cluster
-	/*
-	uint8_t fcurr_sector;	// current sector
-	uint16_t fcurr_offset;
-	*/
+/*
+ uint8_t fcurr_sector;	// current sector
+ uint16_t fcurr_offset;
+ */
 } FAT16Info;
 
-typedef struct{
+typedef struct {
 	uint8_t timer_effect;
-	uint8_t ief ;
+	uint8_t ief;
 	uint8_t capa;
 	uint8_t cycles;
 	uint8_t jmpto;
 	uint8_t jmpin;
 	uint8_t maxEff;
 	Effect *ef;
-} TimerStatus;
+	uint8_t lastcache;
+} Status;
 
 /* GLOBAL VARS */
 static FAT16Info FATFS;
 static CacheItem cache[CACHE_SIZE];
-static TimerStatus status;
-static uint8_t lastcache;
+static Status status;
 /* GLOBAL VARS */
 
 /* SD FUNCTIONS*/
@@ -253,9 +253,9 @@ uint8_t FSopen_file(uint8_t * name, FAT16Info * FS) {
 			FS->fsize = buffer[5] << 24 | buffer[4] << 16 | buffer[3] << 8
 					| buffer[2];
 			/*
-			FS->fcurr_sector = 0;
-			FS->fcurr_offset = 0;
-			*/
+			 FS->fcurr_sector = 0;
+			 FS->fcurr_offset = 0;
+			 */
 			return 1;
 		}
 	}
@@ -263,61 +263,88 @@ uint8_t FSopen_file(uint8_t * name, FAT16Info * FS) {
 }
 
 /*
-void FS_read(uint8_t * buffer, FAT16Info * FS, uint8_t len,uint16_t offset) {
-	//calcular offset en sectores y clusters
-	
-	uint16_t clust_move;
-	uint16_t of_b = offset % FS->sector_size;
-	uint8_t of_sec = offset / FS->sector_size;
-	uint8_t of_clus = of_sec/ FS->cluster_sectors;
-	
-	of_sec = of_sec % FS->cluster_sectors;
-	
-	clust_move=FS->fcurr_clust;
-	if(of_clus!=0){
-		for(;of_clus>0;of_clus--){
-			SD_read(FS->fat_start,(clust_move*2),&clust_move,2);
-			fixEndian(&clust_move,2);
-		}
-	}
-	
-	
-}
-*/
+ void FS_read(uint8_t * buffer, FAT16Info * FS, uint8_t len,uint16_t offset) {
+ //calcular offset en sectores y clusters
+ 
+ uint16_t clust_move;
+ uint16_t of_b = offset % FS->sector_size;
+ uint8_t of_sec = offset / FS->sector_size;
+ uint8_t of_clus = of_sec/ FS->cluster_sectors;
+ 
+ of_sec = of_sec % FS->cluster_sectors;
+ 
+ clust_move=FS->fcurr_clust;
+ if(of_clus!=0){
+ for(;of_clus>0;of_clus--){
+ SD_read(FS->fat_start,(clust_move*2),&clust_move,2);
+ fixEndian(&clust_move,2);
+ }
+ }
+ 
+ 
+ }
+ */
 /* SD FUNCTIONS*/
 
 /* CACHE FUNCTIONS*/
 
 /* carga linea en cache correspondiente a ID solicitado */
-Effect * loadEffect(uint16_t id){
+Effect * loadEffect(uint16_t id, uint8_t online) {
 	//buscar id de cache libre
-	if(lastcache>CACHE_SIZE){
-		lastcache=0;
-	}else{
-		lastcache++;
-		if(lastcache==CACHE_SIZE){
-			lastcache=0;
-		}/*
-		if(status.ief>=cache[lastcache].ief && status.ief<(cache[lastcache].ief+CACHE_ROW_SIZE)){
-			lastcache++;
-			if(lastcache==CACHE_SIZE){
-				lastcache=0;
+	/*
+	uint16_t clust_move;
+	uint16_t of_b;
+	uint8_t of_sec;
+	uint8_t of_clus;
+	*/
+	if (status.lastcache > CACHE_SIZE) {
+		status.lastcache = 0;
+	} else {
+		status.lastcache++;
+		if (status.lastcache == CACHE_SIZE) {
+			status.lastcache = 0;
+		}
+		if (online && status.ief >= cache[status.lastcache].ief
+				&& status.ief
+						< (cache[status.lastcache].ief + CACHE_ROW_SIZE)) {
+			status.lastcache++;
+			if (status.lastcache == CACHE_SIZE) {
+				status.lastcache = 0;
 			}
-		}*/
-	}
-	cache[lastcache].ief=(id/CACHE_ROW_SIZE)*CACHE_ROW_SIZE;
-	SD_read(FATFS.data_start + ((FATFS.fcurr_clust - 2) * FATFS.cluster_sectors)+0,cache[lastcache].ief*9,&(cache[lastcache].effects[0]), CACHE_ROW_SIZE*9);
-	return &(cache[lastcache].effects[(id-cache[lastcache].ief)]);
-}
-/* busca efecto en cache */
-Effect * getEffect(uint16_t id){
-	uint8_t i;
-	for(i=0;i<CACHE_SIZE;i++){
-		if(id>=cache[i].ief && id<(cache[i].ief+CACHE_ROW_SIZE)){
-			return &cache[i].effects[(id-cache[i].ief)];
 		}
 	}
-	return loadEffect(id);
+	cache[status.lastcache].ief = (id / CACHE_ROW_SIZE) * CACHE_ROW_SIZE;
+	
+	/*Calculo de sector
+	of_b = (cache[status.lastcache].ief * 9) % FATFS.|sector_size;
+	of_sec = (cache[status.lastcache].ief * 9) /FATFS.sector_size;
+	of_clus = of_sec / FATFS.cluster_sectors;
+	of_sec = of_sec % FATFS.cluster_sectors;
+	clust_move = FS->fcurr_clust;
+	if (of_clus != 0) {
+		for (; of_clus > 0; of_clus--) {
+			SD_read(FS->fat_start, (clust_move * 2), &clust_move, 2);
+			fixEndian(&clust_move, 2);
+		}
+	}
+	*/
+	while (SD_read(
+			FATFS.data_start + ((FATFS.fcurr_clust - 2) * FATFS.cluster_sectors)
+					+ 0, cache[status.lastcache].ief * 9,
+			&(cache[status.lastcache].effects[0]), CACHE_ROW_SIZE * 9) != 0x00) {
+
+	}
+	return &(cache[status.lastcache].effects[(id - cache[status.lastcache].ief)]);
+}
+/* busca efecto en cache */
+Effect * getEffect(uint16_t id) {
+	uint8_t i;
+	for (i = 0; i < CACHE_SIZE; i++) {
+		if (id >= cache[i].ief && id < (cache[i].ief + CACHE_ROW_SIZE)) {
+			return &cache[i].effects[(id - cache[i].ief)];
+		}
+	}
+	return loadEffect(id, 1);
 }
 
 /* CACHE FUNCTIONS*/
@@ -366,22 +393,22 @@ ISR(ISR_TIMER) {
 	if (status.ef->time == 0x0) {
 		status.jmpin = status.ief + status.ef->layer[0];
 		status.jmpto = status.ief + 1;
-		status.cycles = status.ef->layer[1]-1;
+		status.cycles = status.ef->layer[1] - 1;
 		status.ief++;
-		status.ef=getEffect(status.ief);
+		status.ef = getEffect(status.ief);
 	}
 	if (status.timer_effect >= status.ef->time) {
 		status.timer_effect = 0;
 		if (status.cycles == 0 || status.ief != status.jmpin) {
 			status.ief++;
-			status.ef=getEffect(status.ief);
+			status.ef = getEffect(status.ief);
 			if (status.ief >= status.maxEff) {
 				status.ief = 0;
-				status.ef=getEffect(status.ief);
+				status.ef = getEffect(status.ief);
 			}
 		} else {
 			status.ief = status.jmpto;
-			status.ef=getEffect(status.ief);
+			status.ef = getEffect(status.ief);
 			status.cycles--;
 		}
 	}
@@ -409,16 +436,16 @@ ISR(ISR_TIMER) {
 	if (status.capa > 3) {
 		status.capa = 0;
 	}
+	TPM1CNT = 0;
 	TPM1SC_TOF = 0;
 	TPM1SC_TOIE = 1;
 }
-
 
 /* CUBE FUNCTIONS*/
 
 void main(void) {
 	/* Write your local variable definition here */
-	uint8_t i,f;
+	uint8_t i, f;
 	/*** Processor Expert internal initialization. DON'T REMOVE THIS CODE!!! ***/
 	PE_low_level_init();
 	/*** End of Processor Expert internal initialization.                    ***/
@@ -428,28 +455,27 @@ void main(void) {
 
 	ALLOFF
 	TPM1SC_TOIE = 0;
-	status.timer_effect=0;
-	status.ief=0;
-	status.capa=0;
-	status.cycles=0;
+	status.timer_effect = 0;
+	status.ief = 0;
+	status.capa = 0;
+	status.cycles = 0;
 	//load cache
 
 	DELAY
 	while (SD_init() != 0x00) {
 		DELAY
 	}
-	
+
 	FSmount(&FATFS);
-	
 
 	if (FSopen_file("INDEX   CBP", &FATFS)) {
 		status.maxEff = FATFS.fsize / 9;
-		lastcache=CACHE_SIZE+1;
-		for(i=0;i<CACHE_SIZE;i++){
-			loadEffect(i*CACHE_ROW_SIZE);
+		status.lastcache = CACHE_SIZE + 1;
+		for (i = 0; i < CACHE_SIZE; i++) {
+			loadEffect(i * CACHE_ROW_SIZE, 0);
 		}
 	}
-	
+
 	TPM1SC_TOIE = 1;
 
 	for (;;) {
@@ -462,9 +488,10 @@ void main(void) {
 	PEX_RTOS_START(); /* Startup of the selected RTOS. Macro is defined by the RTOS component. */
 #endif
 	/*** End of RTOS startup code.  ***/
-  /*** Processor Expert end of main routine. DON'T MODIFY THIS CODE!!! ***/
-  for(;;){}
-  /*** Processor Expert end of main routine. DON'T WRITE CODE BELOW!!! ***/
+	/*** Processor Expert end of main routine. DON'T MODIFY THIS CODE!!! ***/
+	for (;;) {
+	}
+	/*** Processor Expert end of main routine. DON'T WRITE CODE BELOW!!! ***/
 } /*** End of main routine. DO NOT MODIFY THIS TEXT!!! ***/
 
 /* END main */

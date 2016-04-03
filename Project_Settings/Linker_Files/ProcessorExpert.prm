@@ -5,7 +5,7 @@
 **     Project   : LedCube20
 **     Processor : MC9S08SH8CPJ
 **     Compiler  : CodeWarrior HCS08 C Compiler
-**     Date/Time : 2016-03-30, 22:53, # CodeGen: 1
+**     Date/Time : 2016-04-03, 13:06, # CodeGen: 7
 **     Abstract  :
 **        This file is used by the linker. It describes files to be linked,
 **        memory ranges, stack size, etc. For detailed description of the PRM file
@@ -68,5 +68,5 @@ END
 
 INIT _EntryPoint                       /* The entry point of the application. This function is generated into the CPU module. */
 
-STACKSIZE 0x0040                       /* Size of the system stack. Value can be changed on the "Build options" tab */
+STACKSIZE 0x0050                       /* Size of the system stack. Value can be changed on the "Build options" tab */
 
