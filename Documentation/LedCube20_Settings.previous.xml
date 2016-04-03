@@ -439,7 +439,7 @@ asm(BGND);
       <Memory_model v="Small" />
       <boolgroup name="Generate PRM file" v="yes">
         <enumgroup name="Stack specification" v="size">
-          <Stack_size v="64" />
+          <Stack_size v="80" />
         </enumgroup>
         <Set_memory_areas_default v="Click to set default &amp;gt;" />
         <list name="ROM/RAM Areas" v="3">
@@ -646,7 +646,7 @@ asm(BGND);
         </boolgroup>
         <boolgroup name="Pin1" v="Enabled">
           <Pin v="PTB1_PIB1_TxD_ADP5" />
-          <Direction v="Input" />
+          <Direction v="Output" />
           <Output_value v="0" />
           <Pull_resistor v="no initialization" />
           <Open_drain v="push-pull" />

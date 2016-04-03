@@ -1,40 +1,39 @@
 /* ###################################################################
-**     Filename    : main.c
-**     Project     : LedCube20
-**     Processor   : MC9S08SH8CPJ
-**     Version     : Driver 01.12
-**     Compiler    : CodeWarrior HCS08 C Compiler
-**     Date/Time   : 2016-03-30, 22:23, # CodeGen: 0
-**     Abstract    :
-**         Main module.
-**         This module contains user's application code.
-**     Settings    :
-**     Contents    :
-**         No public methods
-**
-** ###################################################################*/
+ **     Filename    : main.c
+ **     Project     : test1
+ **     Processor   : MC9S08SH8CPJ
+ **     Version     : Driver 01.12
+ **     Compiler    : CodeWarrior HCS08 C Compiler
+ **     Date/Time   : 2016-01-17, 18:33, # CodeGen: 0
+ **     Abstract    :
+ **         Main module.
+ **         This module contains user's application code.
+ **     Settings    :
+ **     Contents    :
+ **         No public methods
+ **
+ ** ###################################################################*/
 /*!
-** @file main.c
-** @version 01.12
-** @brief
-**         Main module.
-**         This module contains user's application code.
-*/         
+ ** @file main.c
+ ** @version 01.12
+ ** @brief
+ **         Main module.
+ **         This module contains user's application code.
+ */
 /*!
-**  @addtogroup main_module main module documentation
-**  @{
-*/         
+ **  @addtogroup main_module main module documentation
+ **  @{
+ */
 /* MODULE main */
-
 
 /* Including needed modules to compile this module/procedure */
 #include "Cpu.h"
 #include "Events.h"
-#include "SPI.h"
-#include "PTC.h"
 #include "PTA.h"
-#include "PTB.h"
+#include "PTC.h"
 #include "TPM1.h"
+#include "SPI.h"
+#include "PTB.h"
 /* Include shared modules, which are used for whole project */
 #include "PE_Types.h"
 #include "PE_Error.h"
@@ -52,6 +51,20 @@
 #define CAPA3	PTBD_PTBD1
 #define ALLOFF CAPA0=0;CAPA1=0;CAPA2=0;CAPA3=0;
 
+#define CACHE_SIZE	4
+#define CACHE_ROW_SIZE	7
+#define DELAY	for (i = 0; i < 0xff; i++) {for (f = 0; f < 0xff; f++) {}}
+
+typedef struct {
+	uint8_t layer[8];
+	uint8_t time;
+} Effect;
+
+typedef struct {
+	uint8_t ief;
+	Effect effects[CACHE_ROW_SIZE];
+} CacheItem;
+
 typedef struct {
 	uint8_t cluster_sectors;
 	uint16_t sector_size;
@@ -61,10 +74,31 @@ typedef struct {
 	uint16_t data_start;	//sector
 	uint32_t fsize;	//bytes
 	uint16_t fcurr_clust;	//current cluster
-	uint8_t fcurr_sector;	// current sector
-	uint16_t fcurr_offset;
+	/*
+	 uint8_t fcurr_sector;	// current sector
+	 uint16_t fcurr_offset;
+	 */
 } FAT16Info;
 
+typedef struct {
+	uint8_t timer_effect;
+	uint8_t ief;
+	uint8_t capa;
+	uint8_t cycles;
+	uint8_t jmpto;
+	uint8_t jmpin;
+	uint8_t maxEff;
+	Effect *ef;
+	uint8_t lastcache;
+} Status;
+
+/* GLOBAL VARS */
+static FAT16Info FATFS;
+static CacheItem cache[CACHE_SIZE];
+static Status status;
+/* GLOBAL VARS */
+
+/* SD FUNCTIONS*/
 uint8_t strCMP(uint8_t * c1, uint8_t * c2, uint8_t len) {
 	len--;
 	while (len) {
@@ -116,7 +150,6 @@ uint8_t SD_read(uint32_t sector, uint16_t offset, uint8_t * buffer,
 		uint16_t len) {
 
 	uint8_t response, lim;
-
 	SPI_read();
 	sector = sector * 512;
 	response = SD_command(0x51, sector, 0xFF);
@@ -187,6 +220,7 @@ void fixEndian(uint8_t *ptr, uint8_t len) {
 void FSmount(FAT16Info * FS) {
 	uint32_t PT1startSector;
 	uint16_t FATlen;
+
 	SD_read(0x0, 0x1C6, &PT1startSector, 4);
 	fixEndian(&PT1startSector, 4);
 
@@ -218,44 +252,105 @@ uint8_t FSopen_file(uint8_t * name, FAT16Info * FS) {
 			FS->fcurr_clust = (buffer[0] | buffer[1] << 8);
 			FS->fsize = buffer[5] << 24 | buffer[4] << 16 | buffer[3] << 8
 					| buffer[2];
-			FS->fcurr_sector = 0;
-			FS->fcurr_offset = 0;
+			/*
+			 FS->fcurr_sector = 0;
+			 FS->fcurr_offset = 0;
+			 */
 			return 1;
 		}
 	}
 	return 0;
 }
 
-void FS_read(uint8_t * buffer, FAT16Info * FS, uint8_t len) {
-	if (FS->fcurr_offset == FS->sector_size) {
-		FS->fcurr_offset = 0;
-		FS->fcurr_sector++;
-	}
-	if (FS->fcurr_sector == FS->cluster_sectors) {
-		FS->fcurr_sector = 0;
-		/*Buscar nuevo cluster*/
-	}
-	/*
-	 if(len>FS->fsize){
-	 len=FS->fsize;
-	 }
-	 FS->fsize=FS->fsize-len;
-	 */
-	SD_read(FS->data_start + ((FS->fcurr_clust - 2) * FS->cluster_sectors), 0,
-			buffer, len);
-}
+void FS_read(uint8_t * buffer, uint16_t offset, uint8_t len) {
+	//calcular offset en sectores y clusters
 
-void delay() {
+	uint16_t clust_move;
+	uint16_t of_b = offset % FATFS.sector_size;
+	uint8_t of_sec = offset / FATFS.sector_size;
+	uint8_t of_clus = of_sec / FATFS.cluster_sectors;
+	uint8_t len2;
+	of_sec = of_sec % FATFS.cluster_sectors;
 
-	uint8_t i, f;
-	for (i = 0; i < 0xff; i++) {
-		for (f = 0; f < 0xff; f++) {
-
+	clust_move = FATFS.fcurr_clust;
+	if (of_clus != 0) {
+		for (; of_clus > 0; of_clus--) {
+			SD_read(FATFS.fat_start, (clust_move * 2), &clust_move, 2);
+			fixEndian(&clust_move, 2);
 		}
 	}
+	len2 = len;
+	if ((of_b + len) > FATFS.sector_size) {
+		len2 = FATFS.sector_size - of_b;
+		len = len - len2;
+	} else {
+		len = 0;
+	}
 
+	while (SD_read(
+			FATFS.data_start + ((clust_move - 2) * FATFS.cluster_sectors)
+					+ of_sec, of_b, buffer, len2) != 0x00) {
+	}
+	if (!len) {
+		return;
+	}
+	of_sec++;
+	of_clus = of_sec / FATFS.cluster_sectors;
+	if (of_clus != 0) {
+			of_sec = of_sec % FATFS.cluster_sectors;
+			SD_read(FATFS.fat_start, (clust_move * 2), &clust_move, 2);
+			fixEndian(&clust_move, 2);
+	}
+
+	while (SD_read(
+			FATFS.data_start + ((clust_move - 2) * FATFS.cluster_sectors)
+					+ of_sec, 0, (buffer+len2), len) != 0x00) {
+	}
 }
 
+/* SD FUNCTIONS*/
+
+/* CACHE FUNCTIONS*/
+
+/* carga linea en cache correspondiente a ID solicitado */
+Effect * loadEffect(uint16_t id, uint8_t online) {
+	//buscar id de cache libre
+
+	if (status.lastcache > CACHE_SIZE) {
+		status.lastcache = 0;
+	} else {
+		status.lastcache++;
+		if (status.lastcache == CACHE_SIZE) {
+			status.lastcache = 0;
+		}
+		if (online && status.ief >= cache[status.lastcache].ief
+				&& status.ief
+						< (cache[status.lastcache].ief + CACHE_ROW_SIZE)) {
+			status.lastcache++;
+			if (status.lastcache == CACHE_SIZE) {
+				status.lastcache = 0;
+			}
+		}
+	}
+	cache[status.lastcache].ief = (id / CACHE_ROW_SIZE) * CACHE_ROW_SIZE;
+	FS_read(&(cache[status.lastcache].effects[0]),
+			cache[status.lastcache].ief * 9, CACHE_ROW_SIZE * 9);
+	return &(cache[status.lastcache].effects[(id - cache[status.lastcache].ief)]);
+}
+/* busca efecto en cache */
+Effect * getEffect(uint16_t id) {
+	uint8_t i;
+	for (i = 0; i < CACHE_SIZE; i++) {
+		if (id >= cache[i].ief && id < (cache[i].ief + CACHE_ROW_SIZE)) {
+			return &cache[i].effects[(id - cache[i].ief)];
+		}
+	}
+	return loadEffect(id, 1);
+}
+
+/* CACHE FUNCTIONS*/
+
+/* CUBE FUNCTIONS*/
 void loadSIPOS(uint8_t c1, uint8_t c2) {
 	SER1 = (c1 >> 6 & 0x01);
 	SER2 = (c2 >> 6 & 0x01);
@@ -292,111 +387,115 @@ void loadSIPOS(uint8_t c1, uint8_t c2) {
 	CK_OUT
 }
 
-FAT16Info FATFS;
-uint32_t BUFFERLEN;
-uint8_t bufferF[300];
-uint8_t timer_effect = 0;
-uint16_t ief = 0;
-uint8_t capa = 0;
-uint8_t cycles = 0;
-uint8_t jmpto;
-uint8_t jmpin;
-
 ISR(ISR_TIMER) {
 	TPM1SC_TOIE = 0;
 	ALLOFF
-	timer_effect++;
-	if (bufferF[ief * 9 + 8] == 0x0) {
-		jmpin = ief + bufferF[ief * 9];
-		jmpto = ief + 1;
-		cycles = bufferF[ief * 9 + 1]-1;
-		ief++;
+	status.timer_effect++;
+	if (status.ef->time == 0x0) {
+		status.jmpin = status.ief + status.ef->layer[0];
+		status.jmpto = status.ief + 1;
+		status.cycles = status.ef->layer[1] - 1;
+		status.ief++;
+		status.ef = getEffect(status.ief);
 	}
-	if (timer_effect >= bufferF[ief * 9 + 8]) {
-		timer_effect = 0;
-		if (cycles == 0 || ief != jmpin) {
-			ief++;
-			if ((ief * 9) >= BUFFERLEN) {
-				ief = 0;
-			}
+	if (status.timer_effect >= status.ef->time) {
+		status.timer_effect = 0;
+		if (status.cycles == 0 || status.ief != status.jmpin) {
+			status.ief++;
+			if (status.ief >= status.maxEff) {
+				status.ief = 0;
+			}	
 		} else {
-			ief = jmpto;
-			cycles--;
+			status.ief = status.jmpto;
+			status.cycles--;
 		}
+		status.ef = getEffect(status.ief);
 	}
-	switch (capa) {
+	switch (status.capa) {
 	case 0:
-		//loadSIPOS(0x81,0x81);
-		loadSIPOS(bufferF[ief * 9], bufferF[ief * 9 + 1]);
+		loadSIPOS(status.ef->layer[0], status.ef->layer[1]);
 		CAPA0 = 1;
 		break;
 	case 1:
-		//loadSIPOS(0x42,0x42);
-		loadSIPOS(bufferF[ief * 9 + 2], bufferF[ief * 9 + 3]);
+		loadSIPOS(status.ef->layer[2], status.ef->layer[3]);
 		CAPA1 = 1;
 		break;
 	case 2:
-		//loadSIPOS(0x24,0x24);
-		loadSIPOS(bufferF[ief * 9 + 4], bufferF[ief * 9 + 5]);
+		loadSIPOS(status.ef->layer[4], status.ef->layer[5]);
 		CAPA2 = 1;
 		break;
 	case 3:
-		//loadSIPOS(0x18,0x18);
-		loadSIPOS(bufferF[ief * 9 + 6], bufferF[ief * 9 + 7]);
+		loadSIPOS(status.ef->layer[6], status.ef->layer[7]);
 		CAPA3 = 1;
 		break;
 	default:
-		capa = 0;
+		status.capa = 0;
 	}
-	capa++;
-	if (capa > 3) {
-		capa = 0;
+	status.capa++;
+	if (status.capa > 3) {
+		status.capa = 0;
 	}
+	TPM1CNT = 0;
 	TPM1SC_TOF = 0;
 	TPM1SC_TOIE = 1;
 }
 
+/* CUBE FUNCTIONS*/
 
+void main(void) {
+	/* Write your local variable definition here */
+	uint8_t i, f;
+	/*** Processor Expert internal initialization. DON'T REMOVE THIS CODE!!! ***/
+	PE_low_level_init();
+	/*** End of Processor Expert internal initialization.                    ***/
 
-void main(void)
-{
-  /* Write your local variable definition here */
-
-  /*** Processor Expert internal initialization. DON'T REMOVE THIS CODE!!! ***/
-  PE_low_level_init();
-  /*** End of Processor Expert internal initialization.                    ***/
-
-  /* Write your code here */
-  /* For example: for(;;) { } */
+	/* Write your code here */
+	/* For example: for(;;) { } */
 
 	ALLOFF
 	TPM1SC_TOIE = 0;
-	/*
-	 loadSIPOS(0xff,0xff);
-	 CAPA1=1;
-	 for(;;){}
-	 */
-	delay();
+	status.timer_effect = 0;
+	status.ief = 0;
+	status.capa = 0;
+	status.cycles = 0;
+	//load cache
+
+	DELAY
 	while (SD_init() != 0x00) {
-		delay();
+		DELAY
 	}
 
 	FSmount(&FATFS);
+
 	if (FSopen_file("INDEX   CBP", &FATFS)) {
-		BUFFERLEN = FATFS.fsize;
-		FS_read(bufferF, &FATFS, BUFFERLEN);
+		status.maxEff = FATFS.fsize / 9;
+		status.lastcache = CACHE_SIZE + 1;
+		for (i = 0; i < CACHE_SIZE; i++) {
+			loadEffect(i * CACHE_ROW_SIZE, 0);
+		}
 	}
-	TPM1SC_TOIE = 1; // start timer
+	status.ef=getEffect(0);
+	TPM1SC_TOIE = 1;
+	i=0;
 	for (;;) {
-
+		// precarga de chache
+		if(i!=status.ief){
+			i = status.ief;
+			f=i+1;
+			if(f>status.maxEff){
+				f=0;
+			}
+			getEffect(f);
+		}
+		
 	}
 
-  /*** Don't write any code pass this line, or it will be deleted during code generation. ***/
-  /*** RTOS startup code. Macro PEX_RTOS_START is defined by the RTOS component. DON'T MODIFY THIS CODE!!! ***/
-  #ifdef PEX_RTOS_START
-    PEX_RTOS_START();                  /* Startup of the selected RTOS. Macro is defined by the RTOS component. */
-  #endif
-  /*** End of RTOS startup code.  ***/
+	/*** Don't write any code pass this line, or it will be deleted during code generation. ***/
+	/*** RTOS startup code. Macro PEX_RTOS_START is defined by the RTOS component. DON'T MODIFY THIS CODE!!! ***/
+#ifdef PEX_RTOS_START
+	PEX_RTOS_START(); /* Startup of the selected RTOS. Macro is defined by the RTOS component. */
+#endif
+	/*** End of RTOS startup code.  ***/
   /*** Processor Expert end of main routine. DON'T MODIFY THIS CODE!!! ***/
   for(;;){}
   /*** Processor Expert end of main routine. DON'T WRITE CODE BELOW!!! ***/
@@ -404,13 +503,14 @@ void main(void)
 
 /* END main */
 /*!
-** @}
-*/
+ ** @}
+ */
 /*
-** ###################################################################
-**
-**     This file was created by Processor Expert 10.3 [05.09]
-**     for the Freescale HCS08 series of microcontrollers.
-**
-** ###################################################################
-*/
+ ** ###################################################################
+ **
+ **     This file was created by Processor Expert 10.3 [05.09]
+ **     for the Freescale HCS08 series of microcontrollers.
+ **
+ ** ###################################################################
+ */
+

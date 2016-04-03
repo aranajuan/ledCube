@@ -6,7 +6,7 @@
 **     Component   : Init_GPIO
 **     Version     : Component 01.032, Driver 01.21, CPU db: 3.00.067
 **     Compiler    : CodeWarrior HCS08 C Compiler
-**     Date/Time   : 2016-03-30, 22:53, # CodeGen: 1
+**     Date/Time   : 2016-03-31, 10:35, # CodeGen: 3
 **     Abstract    :
 **          This file implements the General Purpose Input Output (PTC)
 **          module initialization according to the Peripheral Initialization
@@ -27,13 +27,13 @@
 **
 **          Pin0                                           : PTC0_TPM1CH0_ADP8
 **            Direction                                    : Output
-**            Output value                                 : no initialization
+**            Output value                                 : 0
 **            Pull resistor                                : no initialization
 **            Open drain                                   : push-pull
 **
 **          Pin1                                           : PTC1_TPM1CH1_ADP9
 **            Direction                                    : Output
-**            Output value                                 : no initialization
+**            Output value                                 : 0
 **            Pull resistor                                : no initialization
 **            Open drain                                   : push-pull
 **

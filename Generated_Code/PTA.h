@@ -6,7 +6,7 @@
 **     Component   : Init_GPIO
 **     Version     : Component 01.032, Driver 01.21, CPU db: 3.00.067
 **     Compiler    : CodeWarrior HCS08 C Compiler
-**     Date/Time   : 2016-03-30, 22:53, # CodeGen: 1
+**     Date/Time   : 2016-03-31, 10:35, # CodeGen: 3
 **     Abstract    :
 **          This file implements the General Purpose Input Output (PTA)
 **          module initialization according to the Peripheral Initialization
@@ -29,25 +29,25 @@
 **
 **          Pin0                                           : PTA0_PIA0_TPM1CH0_ADP0_ACMPPLUS
 **            Direction                                    : Output
-**            Output value                                 : no initialization
+**            Output value                                 : 0
 **            Pull resistor                                : no initialization
 **            Open drain                                   : push-pull
 **
 **          Pin1                                           : PTA1_PIA1_TPM2CH0_ADP1_ACMPMINUS
 **            Direction                                    : Output
-**            Output value                                 : no initialization
+**            Output value                                 : 0
 **            Pull resistor                                : no initialization
 **            Open drain                                   : push-pull
 **
 **          Pin2                                           : PTA2_PIA2_SDA_ADP2
 **            Direction                                    : Output
-**            Output value                                 : no initialization
+**            Output value                                 : 0
 **            Pull resistor                                : no initialization
 **            Open drain                                   : push-pull
 **
 **          Pin3                                           : PTA3_PIA3_SCL_ADP3
 **            Direction                                    : Output
-**            Output value                                 : no initialization
+**            Output value                                 : 0
 **            Pull resistor                                : no initialization
 **            Open drain                                   : push-pull
 **

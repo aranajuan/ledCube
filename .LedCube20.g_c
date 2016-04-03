@@ -66,7 +66,7 @@
     </GenFiles>
     <SignalListFile>Documentation\LedCube20_SIGNALS.txt</SignalListFile>
     <DestinationCompiler>MetrowerksHCS08CC</DestinationCompiler>
-    <ProjectModificationStamp>4</ProjectModificationStamp>
+    <ProjectModificationStamp>8</ProjectModificationStamp>
   </Options>
   <CpuID_2>
     <Generated>false</Generated>
@@ -195,8 +195,8 @@
     <GenComponentVersion>01.032</GenComponentVersion>
     <GenDriverVersion>01.21</GenDriverVersion>
     <GenEventModule />
-    <HeaderAge>1216263869</HeaderAge>
-    <CodeAge>1216263869</CodeAge>
+    <HeaderAge>1216517454</HeaderAge>
+    <CodeAge>1216517454</CodeAge>
     <AsemblAge>-1</AsemblAge>
     <GenNumMethods>1</GenNumMethods>
     <Init>true</Init>
@@ -217,7 +217,7 @@
       <MethodType>method</MethodType>
       <ModuleType>Code</ModuleType>
       <LineBeg>91</LineBeg>
-      <LineEnd>110</LineEnd>
+      <LineEnd>112</LineEnd>
     </MethodPos>
     <GenExtraFilesCount>0</GenExtraFilesCount>
   </ComponentID_10>
@@ -227,8 +227,8 @@
     <GenComponentVersion>01.032</GenComponentVersion>
     <GenDriverVersion>01.21</GenDriverVersion>
     <GenEventModule />
-    <HeaderAge>1216263869</HeaderAge>
-    <CodeAge>1216263869</CodeAge>
+    <HeaderAge>1216517454</HeaderAge>
+    <CodeAge>1216517454</CodeAge>
     <AsemblAge>-1</AsemblAge>
     <GenNumMethods>1</GenNumMethods>
     <Init>true</Init>
@@ -249,7 +249,7 @@
       <MethodType>method</MethodType>
       <ModuleType>Code</ModuleType>
       <LineBeg>105</LineBeg>
-      <LineEnd>124</LineEnd>
+      <LineEnd>126</LineEnd>
     </MethodPos>
     <GenExtraFilesCount>0</GenExtraFilesCount>
   </ComponentID_11>
@@ -259,8 +259,8 @@
     <GenComponentVersion>01.032</GenComponentVersion>
     <GenDriverVersion>01.21</GenDriverVersion>
     <GenEventModule />
-    <HeaderAge>1216263919</HeaderAge>
-    <CodeAge>1216263919</CodeAge>
+    <HeaderAge>1216517454</HeaderAge>
+    <CodeAge>1216517454</CodeAge>
     <AsemblAge>-1</AsemblAge>
     <GenNumMethods>1</GenNumMethods>
     <Init>true</Init>
@@ -281,7 +281,7 @@
       <MethodType>method</MethodType>
       <ModuleType>Code</ModuleType>
       <LineBeg>91</LineBeg>
-      <LineEnd>110</LineEnd>
+      <LineEnd>112</LineEnd>
     </MethodPos>
     <GenExtraFilesCount>0</GenExtraFilesCount>
   </ComponentID_12>
