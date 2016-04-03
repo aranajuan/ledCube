@@ -66,7 +66,7 @@
     </GenFiles>
     <SignalListFile>Documentation\LedCube20_SIGNALS.txt</SignalListFile>
     <DestinationCompiler>MetrowerksHCS08CC</DestinationCompiler>
-    <ProjectModificationStamp>6</ProjectModificationStamp>
+    <ProjectModificationStamp>7</ProjectModificationStamp>
   </Options>
   <CpuID_2>
     <Generated>false</Generated>

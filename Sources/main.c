@@ -74,10 +74,10 @@ typedef struct {
 	uint16_t data_start;	//sector
 	uint32_t fsize;	//bytes
 	uint16_t fcurr_clust;	//current cluster
-/*
- uint8_t fcurr_sector;	// current sector
- uint16_t fcurr_offset;
- */
+	/*
+	 uint8_t fcurr_sector;	// current sector
+	 uint16_t fcurr_offset;
+	 */
 } FAT16Info;
 
 typedef struct {
@@ -262,28 +262,52 @@ uint8_t FSopen_file(uint8_t * name, FAT16Info * FS) {
 	return 0;
 }
 
-/*
- void FS_read(uint8_t * buffer, FAT16Info * FS, uint8_t len,uint16_t offset) {
- //calcular offset en sectores y clusters
- 
- uint16_t clust_move;
- uint16_t of_b = offset % FS->sector_size;
- uint8_t of_sec = offset / FS->sector_size;
- uint8_t of_clus = of_sec/ FS->cluster_sectors;
- 
- of_sec = of_sec % FS->cluster_sectors;
- 
- clust_move=FS->fcurr_clust;
- if(of_clus!=0){
- for(;of_clus>0;of_clus--){
- SD_read(FS->fat_start,(clust_move*2),&clust_move,2);
- fixEndian(&clust_move,2);
- }
- }
- 
- 
- }
- */
+void FS_read(uint8_t * buffer, uint16_t offset, uint8_t len) {
+	//calcular offset en sectores y clusters
+
+	uint16_t clust_move;
+	uint16_t of_b = offset % FATFS.sector_size;
+	uint8_t of_sec = offset / FATFS.sector_size;
+	uint8_t of_clus = of_sec / FATFS.cluster_sectors;
+	uint8_t len2;
+	of_sec = of_sec % FATFS.cluster_sectors;
+
+	clust_move = FATFS.fcurr_clust;
+	if (of_clus != 0) {
+		for (; of_clus > 0; of_clus--) {
+			SD_read(FATFS.fat_start, (clust_move * 2), &clust_move, 2);
+			fixEndian(&clust_move, 2);
+		}
+	}
+	len2 = len;
+	if ((of_b + len) > FATFS.sector_size) {
+		len2 = FATFS.sector_size - of_b;
+		len = len - len2;
+	} else {
+		len = 0;
+	}
+
+	while (SD_read(
+			FATFS.data_start + ((clust_move - 2) * FATFS.cluster_sectors)
+					+ of_sec, of_b, buffer, len2) != 0x00) {
+	}
+	if (!len) {
+		return;
+	}
+	of_sec++;
+	of_clus = of_sec / FATFS.cluster_sectors;
+	if (of_clus != 0) {
+			of_sec = of_sec % FATFS.cluster_sectors;
+			SD_read(FATFS.fat_start, (clust_move * 2), &clust_move, 2);
+			fixEndian(&clust_move, 2);
+	}
+
+	while (SD_read(
+			FATFS.data_start + ((clust_move - 2) * FATFS.cluster_sectors)
+					+ of_sec, 0, (buffer+len2), len) != 0x00) {
+	}
+}
+
 /* SD FUNCTIONS*/
 
 /* CACHE FUNCTIONS*/
@@ -291,11 +315,6 @@ uint8_t FSopen_file(uint8_t * name, FAT16Info * FS) {
 /* carga linea en cache correspondiente a ID solicitado */
 Effect * loadEffect(uint16_t id, uint8_t online) {
 	//buscar id de cache libre
-
-	uint16_t clust_move;
-	uint16_t of_b;
-	uint8_t of_sec;
-	uint8_t of_clus;
 
 	if (status.lastcache > CACHE_SIZE) {
 		status.lastcache = 0;
@@ -314,26 +333,8 @@ Effect * loadEffect(uint16_t id, uint8_t online) {
 		}
 	}
 	cache[status.lastcache].ief = (id / CACHE_ROW_SIZE) * CACHE_ROW_SIZE;
-	
-
-	of_b = (cache[status.lastcache].ief * 9) % FATFS.sector_size;
-	of_sec = (cache[status.lastcache].ief * 9) /FATFS.sector_size;
-	of_clus = of_sec / FATFS.cluster_sectors;
-	of_sec = of_sec % FATFS.cluster_sectors;
-	clust_move = FATFS.fcurr_clust;
-	if (of_clus != 0) {
-		for (; of_clus > 0; of_clus--) {
-			SD_read(FATFS.fat_start, (clust_move * 2), &clust_move, 2);
-			fixEndian(&clust_move, 2);
-		}
-	}
-
-	while (SD_read(
-			FATFS.data_start + ((clust_move - 2) * FATFS.cluster_sectors)
-					+ of_sec, of_b,
-			&(cache[status.lastcache].effects[0]), CACHE_ROW_SIZE * 9) != 0x00) {
-
-	}
+	FS_read(&(cache[status.lastcache].effects[0]),
+			cache[status.lastcache].ief * 9, CACHE_ROW_SIZE * 9);
 	return &(cache[status.lastcache].effects[(id - cache[status.lastcache].ief)]);
 }
 /* busca efecto en cache */
@@ -401,16 +402,14 @@ ISR(ISR_TIMER) {
 		status.timer_effect = 0;
 		if (status.cycles == 0 || status.ief != status.jmpin) {
 			status.ief++;
-			status.ef = getEffect(status.ief);
 			if (status.ief >= status.maxEff) {
 				status.ief = 0;
-				status.ef = getEffect(status.ief);
-			}
+			}	
 		} else {
 			status.ief = status.jmpto;
-			status.ef = getEffect(status.ief);
 			status.cycles--;
 		}
+		status.ef = getEffect(status.ief);
 	}
 	switch (status.capa) {
 	case 0:
@@ -477,9 +476,18 @@ void main(void) {
 	}
 
 	TPM1SC_TOIE = 1;
-
+	i=0;
 	for (;;) {
-
+		// precarga de chache
+		if(i!=status.ief){
+			i = status.ief;
+			f=i+1;
+			if(f>status.maxEff){
+				f=0;
+			}
+			getEffect(f);
+		}
+		
 	}
 
 	/*** Don't write any code pass this line, or it will be deleted during code generation. ***/
